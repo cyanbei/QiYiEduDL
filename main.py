@@ -5,9 +5,12 @@
 """
 import time
 import os
+import re
 import codecs
+import json
 import hashlib
 import requests
+from lxml import etree
 
 class QiyiVideo(object):
     def __init__(self, url):
@@ -30,6 +33,8 @@ class QiyiVideo(object):
         for video in self.videos:
             m3uname = self.tvid2m3u8(video["id"], video["pd"])
             self.download(m3uname, video["subTitle"])
+        self.getdesc()
+        #self.createtorrent()
 
     def url2aid(self):
         """
@@ -67,7 +72,7 @@ class QiyiVideo(object):
         通过aid获取视频tvid列表
         """
         headers = {
-            'User - Agent': "Mozilla / 5.0(Macintosh; Intel Mac OS X 10_11_6) AppleWebKit \
+            'User-Agent': "Mozilla / 5.0(Macintosh; Intel Mac OS X 10_11_6) AppleWebKit \
                                     / 537.36(KHTML, like Gecko) Chrome / 53.0.2785.143 Safari / 537.36"
         }
         params = {
@@ -87,13 +92,12 @@ class QiyiVideo(object):
         :param tvid: 视频id
         """
         headers = {
-            'User - Agent': "Mozilla / 5.0(Macintosh; Intel Mac OS X 10_11_6) AppleWebKit \
+            'User-Agent': "Mozilla / 5.0(Macintosh; Intel Mac OS X 10_11_6) AppleWebKit \
                                             / 537.36(KHTML, like Gecko) Chrome / 53.0.2785.143 Safari / 537.36"
         }
         timestamp = str(int(time.time()*1000))
-        #接口隐藏
+        #隐藏接口
         get_url = "https://cache.video.iqiyi.com"
-        print(get_url+param)
         r = requests.get(get_url+param, headers=headers, timeout=30).json()
         #寻找清晰度最高的版本
         maxindex = 0
@@ -129,7 +133,50 @@ class QiyiVideo(object):
         os.system(task)
         os.remove(mname)
 
+    def createtorrent(self):
+        print("准备生成种子文件...")
+        task = "mktorrent -a https://pttracker6.tjupt.org/announce.php -l 24 -p -v \"" + self.title + "\""
+        os.system(task)
+        print("成功生成种子文件。")
+
+    def getdesc(self):
+        murl = self.url.replace("www", "m")
+        print(murl)
+        headers = {
+            'User-Agent': "Mozilla/5.0 (Linux; Android 5.0; SM-G900P Build/LRX21T) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Mobile Safari/537.36",
+            'Accept': "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3",
+
+        }
+        r = requests.get(murl, headers=headers, timeout=30).text
+        html = etree.HTML(r)
+        scrs = html.xpath('//script/text()')
+        window_init = None
+        for scr in scrs:
+            if scr.encode("utf-8").decode("utf-8").startswith("window.__INITIAL"):
+                window_init = scr.encode("utf-8").decode("utf-8")
+        json_data = re.findall(r'STATE__=(.*);\(function', window_init)[0]
+        print(json_data)
+        data = json.loads(json_data)
+        desc = ""
+        desc += "[img]http:"+ data["play"]["loadInfo"]["imageUrl"]+ "[/img]\n"
+        desc += "[b][size=4]"+ data["play"]["albumInfo"]["albumName"]+ "[/size][/b]\n"
+        desc += data["play"]["albumInfo"]["desc"]+ "\n\n\n"
+        desc += "[img]http:"+ data["play"]["albumInfo"]["instructor"]["imgUrl"]+ "[/img]\n"
+        desc += "[b][size=4]讲师简介：[/size][/b]\n"+ data["play"]["albumInfo"]["instructor"]["name"]+ "\n "+ data["play"]["albumInfo"]["instructor"]["description"]+ "\n\n\n"
+        desc += "[b][size=4]课程详情：[/size][/b]\n"
+        detail_url = "http:"+ data["play"]["albumInfo"]["priceInfo"]["detailUrl"]
+        rd = requests.get(detail_url, headers=headers, timeout=30).json()
+        for deimg in rd:
+            desc += "[img]"+ deimg["value"]+ "[/img]\n"
+        desc += "\n\n[b][size=4]课程目录：[/size][/b]\n"
+        for video in data["play"]["videoList"]["videos"]:
+            desc += video["title"]+ "\n"
+        with codecs.open("%s.txt" % self.title, "a+", "utf-8") as f:
+            f.write(desc)
+
+
 if __name__ == "__main__":
     url = input("请输入你要下载的教育资源链接，形如http://www.iqiyi.com/v_19rrd0u0vw.html：")
+    #url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
     a = QiyiVideo(url)
     a.autodl()
