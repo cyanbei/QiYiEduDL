@@ -69,6 +69,7 @@ class QiyiVideo(object):
         r = requests.get(get_url, params=params, headers=headers, timeout=30).json()
         self.aid = r["play_aid"]
         self.title = self.standard(r["album"]["_t"])
+        self.mvid = r["play_tvid"]
 
     def aid2tvid(self):
         """
@@ -99,7 +100,7 @@ class QiyiVideo(object):
                                             / 537.36(KHTML, like Gecko) Chrome / 53.0.2785.143 Safari / 537.36"
         }
         timestamp = str(int(time.time()*1000))
-        # 这里是不能说的秘密
+        # 这里太重要了，有几行不能告诉你
         get_url = "https://cache.video.iqiyi.com"
         r = requests.get(get_url+param, headers=headers, timeout=30).json()
         # 寻找清晰度最高的版本
@@ -179,6 +180,29 @@ class QiyiVideo(object):
         with codecs.open("%s.txt" % self.title, "a+", "utf-8") as f:
             f.write(desc)
 
+    def epidl(self):
+        self.url2aid()
+        self.aid2tvid()
+        if os.path.exists(self.title):
+            pass
+        else:
+            os.mkdir(self.title)
+        piliang = input("当前总共有%d集，请输入要下载哪些集数，如第3-5集，就输入 3:5 ：" % len(self.videos))
+        start, end = piliang.split(":")
+        now = int(start)
+        end = int(end)
+        while now<= end:
+            video = self.videos[now - 1]
+            print("开始处理第%d集" % now)
+            m3uname = self.tvid2m3u8(video["id"], video["pd"])
+            self.download(m3uname, video["subTitle"])
+            now += 1
+
+    def movdl(self):
+        self.url2aid()
+        m3uname = self.tvid2m3u8(self.mvid, 1)
+        self.download(m3uname, self.title)
+
 class episodeVideo(QiyiVideo):
     def __init__(self, url, index):
         self.url = url
@@ -197,7 +221,7 @@ class episodeVideo(QiyiVideo):
 
 
 if __name__ == "__main__":
-    option = input("你想干啥？\n1.下全集\n2.下单集")
+    option = input("你想干啥？\n1.下全集\n2.下单集\n3.我要批量下爱奇艺剧集\n4.我要下载爱奇艺的电影\n")
     if option == "1":
         url = input("那你给我下载地址吧：")
         # url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
@@ -208,3 +232,11 @@ if __name__ == "__main__":
         eps = input("你下第几集？")
         a = episodeVideo(url, eps)
         a.autodl()
+    elif option == "3":
+        url = input("请输入你要下载的剧集的地址哦")
+        a = QiyiVideo(url)
+        a.epidl()
+    elif option == "4":
+        url = input("请输入你要下载的电影地址哦")
+        a = QiyiVideo(url)
+        a.movdl()
