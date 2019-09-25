@@ -99,7 +99,7 @@ class QiyiVideo(object):
                                             / 537.36(KHTML, like Gecko) Chrome / 53.0.2785.143 Safari / 537.36"
         }
         timestamp = str(int(time.time()*1000))
-        #一些奇怪的东西应该在这里，但出于某些原因不能在这里
+        # 这里是不能说的秘密
         get_url = "https://cache.video.iqiyi.com"
         r = requests.get(get_url+param, headers=headers, timeout=30).json()
         # 寻找清晰度最高的版本
@@ -179,9 +179,32 @@ class QiyiVideo(object):
         with codecs.open("%s.txt" % self.title, "a+", "utf-8") as f:
             f.write(desc)
 
+class episodeVideo(QiyiVideo):
+    def __init__(self, url, index):
+        self.url = url
+        self.index = int(index)
+
+    def autodl(self):
+        self.url2aid()
+        self.aid2tvid()
+        if os.path.exists(self.title):
+            pass
+        else:
+            os.mkdir(self.title)
+        video = self.videos[self.index-1]
+        m3uname = self.tvid2m3u8(video["id"], video["pd"])
+        self.download(m3uname, video["subTitle"])
+
 
 if __name__ == "__main__":
-    url = input("请输入你要下载的教育资源链接，形如http://www.iqiyi.com/v_19rrd0u0vw.html：")
-    # url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
-    a = QiyiVideo(url)
-    a.autodl()
+    option = input("你想干啥？\n1.下全集\n2.下单集")
+    if option == "1":
+        url = input("那你给我下载地址吧：")
+        # url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
+        a = QiyiVideo(url)
+        a.autodl()
+    elif option == "2":
+        url = input("教育资源的地址是啥？")
+        eps = input("你下第几集？")
+        a = episodeVideo(url, eps)
+        a.autodl()
