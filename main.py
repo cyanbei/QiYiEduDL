@@ -12,13 +12,16 @@ import hashlib
 import requests
 from lxml import etree
 
+
 class QiyiVideo(object):
     def __init__(self, url):
         self.url = url
 
     @staticmethod
     def standard(name):
-        '''标准化文件及文件夹的命名'''
+        """
+        标准化文件及文件夹的命名
+        """
         nm = name.replace("|", "：").replace(":", "：").replace("?", "？").replace("/", "").replace("\\", "").replace("*", "")
         nm = nm.replace("<", "《").replace(">", "》").replace('"', "“")
         return nm
@@ -34,7 +37,7 @@ class QiyiVideo(object):
             m3uname = self.tvid2m3u8(video["id"], video["pd"])
             self.download(m3uname, video["subTitle"])
         self.getdesc()
-        #self.createtorrent()
+        # self.createtorrent()
 
     def url2aid(self):
         """
@@ -96,21 +99,23 @@ class QiyiVideo(object):
                                             / 537.36(KHTML, like Gecko) Chrome / 53.0.2785.143 Safari / 537.36"
         }
         timestamp = str(int(time.time()*1000))
-        #隐藏接口
+        #一些奇怪的东西应该在这里，但出于某些原因不能在这里
         get_url = "https://cache.video.iqiyi.com"
         r = requests.get(get_url+param, headers=headers, timeout=30).json()
-        #寻找清晰度最高的版本
+        # 寻找清晰度最高的版本
         maxindex = 0
         for index, res in enumerate(r["data"]["vp"]["tkl"][0]["vs"]):
             if index > 1:
                 if res["vsize"] > r["data"]["vp"]["tkl"][0]["vs"][maxindex]["vsize"]:
                     maxindex = index
-        #构造m3u8文件
+        # 构造m3u8文件
         m3u8 = "#EXTM3U\n#EXT-X-TARGETDURATION:300\n"
         for clip in r["data"]["vp"]["tkl"][0]["vs"][maxindex]["fs"]:
             m3u8 += "#EXTINF:400\n"
-            cdn = "http://data.video.iqiyi.com/videos" + clip["l"]
-            down = requests.get(cdn, headers=headers, timeout=30).json()["l"]
+            down = "http://qiniucdnct.inter.iqiyi.com/videos" + clip["l"]
+            # cdn = "http://data.video.iqiyi.com/videos" + clip["l"]
+            # print(cdn)
+            # down = requests.get(cdn, headers=headers, timeout=30).json()["l"]
             m3u8 += down + "\n"
         m3u8 += "#EXT-X-ENDLIST\n\n"
         with codecs.open("%02d.m3u8" % chapter, "a+", "utf-8") as f:
@@ -155,14 +160,14 @@ class QiyiVideo(object):
             if scr.encode("utf-8").decode("utf-8").startswith("window.__INITIAL"):
                 window_init = scr.encode("utf-8").decode("utf-8")
         json_data = re.findall(r'STATE__=(.*);\(function', window_init)[0]
-        print(json_data)
         data = json.loads(json_data)
         desc = ""
         desc += "[img]http:"+ data["play"]["loadInfo"]["imageUrl"]+ "[/img]\n"
         desc += "[b][size=4]"+ data["play"]["albumInfo"]["albumName"]+ "[/size][/b]\n"
         desc += data["play"]["albumInfo"]["desc"]+ "\n\n\n"
-        desc += "[img]http:"+ data["play"]["albumInfo"]["instructor"]["imgUrl"]+ "[/img]\n"
-        desc += "[b][size=4]讲师简介：[/size][/b]\n"+ data["play"]["albumInfo"]["instructor"]["name"]+ "\n "+ data["play"]["albumInfo"]["instructor"]["description"]+ "\n\n\n"
+        if "instructor" in data["play"]["albumInfo"]:
+            desc += "[img]http:" + data["play"]["albumInfo"]["instructor"]["imgUrl"] + "[/img]\n"
+            desc += "[b][size=4]讲师简介：[/size][/b]\n"+ data["play"]["albumInfo"]["instructor"]["name"]+ "\n "+ data["play"]["albumInfo"]["instructor"]["description"]+ "\n\n\n"
         desc += "[b][size=4]课程详情：[/size][/b]\n"
         detail_url = "http:"+ data["play"]["albumInfo"]["priceInfo"]["detailUrl"]
         rd = requests.get(detail_url, headers=headers, timeout=30).json()
@@ -177,6 +182,6 @@ class QiyiVideo(object):
 
 if __name__ == "__main__":
     url = input("请输入你要下载的教育资源链接，形如http://www.iqiyi.com/v_19rrd0u0vw.html：")
-    #url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
+    # url = "http://www.iqiyi.com/v_19rt9kzcxg.html"
     a = QiyiVideo(url)
     a.autodl()
